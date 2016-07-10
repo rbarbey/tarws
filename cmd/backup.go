@@ -1,7 +1,12 @@
 package cmd
 
 import (
+	"archive/tar"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -16,6 +21,49 @@ var (
 
 func backup(cmd *cobra.Command, args []string) {
 	fmt.Printf("Backupd command %+v\n", args)
+}
+
+func iterate(path string, tarWriter *tar.Writer) {
+	dir, err := os.Open(path)
+	handle(err)
+	defer dir.Close()
+
+	// read all file entries in dir in one slice
+	fileInfos, err := dir.Readdir(0)
+	handle(err)
+
+	for _, fileInfo := range fileInfos {
+		currentPath := filepath.Join(path, fileInfo.Name())
+		if fileInfo.IsDir() {
+			iterate(currentPath, tarWriter)
+		} else {
+			log.Printf("Adding %s\n", currentPath)
+			write(currentPath, fileInfo, tarWriter)
+		}
+	}
+}
+
+func write(path string, fileInfo os.FileInfo, tarWriter *tar.Writer) {
+	err := tarWriter.WriteHeader(&tar.Header{
+		Name:    path,
+		Size:    fileInfo.Size(),
+		Mode:    int64(fileInfo.Mode()),
+		ModTime: fileInfo.ModTime(),
+	})
+	handle(err)
+
+	file, err := os.Open(path)
+	handle(err)
+	defer file.Close()
+
+	_, err = io.Copy(tarWriter, file)
+	handle(err)
+}
+
+func handle(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func init() {
