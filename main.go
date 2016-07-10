@@ -3,19 +3,21 @@ package main
 import (
 	"archive/tar"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+
+	"tarws/cmd"
 )
 
 func main() {
+	cmd.Execute()
 
 	//err := filepath.Walk("/Users/robert/Development/golang/src/", tar)
-	tarWriter := tar.NewWriter(ioutil.Discard)
-	defer tarWriter.Close()
-
-	iterate("/Users/robert/Development/golang/src/", tarWriter)
+	// tarWriter := tar.NewWriter(ioutil.Discard)
+	// defer tarWriter.Close()
+	//
+	// iterate("/Users/robert/Development/golang/src/", tarWriter)
 }
 
 func iterate(path string, tarWriter *tar.Writer) {
