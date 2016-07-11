@@ -73,5 +73,9 @@ func handle(err error) {
 }
 
 func init() {
+	backupCmd.Flags().StringVarP(&region, "region", "r", "", "Region in which the target S3 bucket is located")
+	backupCmd.Flags().StringVarP(&bucket, "bucket", "b", "", "S3 bucket to which the resulting tar should be uploaded")
+	backupCmd.Flags().StringVarP(&key, "key", "k", "", "name of the uploaded file in the target S3 bucket")
+
 	TarwsCmd.AddCommand(backupCmd)
 }
