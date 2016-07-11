@@ -4,11 +4,14 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/spf13/cobra"
 )
 
@@ -18,15 +21,40 @@ var (
 		Short: "Backup data",
 		Run:   backup,
 	}
+	region, bucket, key string
 )
 
 func backup(cmd *cobra.Command, args []string) {
 	fmt.Printf("Backupd command %+v\n", args)
 
-	tarWriter := tar.NewWriter(ioutil.Discard)
-	defer tarWriter.Close()
+	reader, writer := io.Pipe()
 
-	iterate(args[0], tarWriter)
+	go func() {
+		tarWriter := tar.NewWriter(writer)
+		defer tarWriter.Close()
+
+		iterate(args[0], tarWriter)
+		writer.Close()
+	}()
+
+	session := session.New(&aws.Config{
+		Region: aws.String(region),
+	})
+	session.Handlers.Send.PushFront(func(r *request.Request) {
+		log.Printf("Request: %s/%s, Payload: %s\n", r.ClientInfo.ServiceName, r.Operation, r.Params)
+	})
+	uploader := s3manager.NewUploader(session)
+	result, err := uploader.Upload(&s3manager.UploadInput{
+		Body:   reader,
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+
+	if err != nil {
+		log.Fatalf("Error uploading to s3: %+v", err)
+	}
+
+	log.Println("Successfully uploaded to", result.Location)
 }
 
 func iterate(path string, tarWriter *tar.Writer) {
