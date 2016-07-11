@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,6 +22,11 @@ var (
 
 func backup(cmd *cobra.Command, args []string) {
 	fmt.Printf("Backupd command %+v\n", args)
+
+	tarWriter := tar.NewWriter(ioutil.Discard)
+	defer tarWriter.Close()
+
+	iterate(args[0], tarWriter)
 }
 
 func iterate(path string, tarWriter *tar.Writer) {
