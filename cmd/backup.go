@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"archive/tar"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -18,12 +19,21 @@ var (
 	backupCmd = &cobra.Command{
 		Use:   "backup",
 		Short: "Backup data",
-		Run:   backup,
+		RunE:  backup,
 	}
 	region, bucket, key string
 )
 
-func backup(cmd *cobra.Command, args []string) {
+func backup(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return errors.New("No path for backing up was specified")
+	}
+
+	path := args[0]
+	if _, err := os.Stat(path); err != nil {
+		return err
+	}
+
 	// create a pipe so that s3uploader can read from tar's writer
 	reader, writer := io.Pipe()
 
@@ -31,7 +41,7 @@ func backup(cmd *cobra.Command, args []string) {
 		tarWriter := tar.NewWriter(writer)
 		defer tarWriter.Close()
 
-		iterate(args[0], tarWriter)
+		iterate(path, tarWriter)
 		writer.Close()
 	}()
 
@@ -53,6 +63,8 @@ func backup(cmd *cobra.Command, args []string) {
 	}
 
 	log.Println("Successfully uploaded to", result.Location)
+
+	return nil
 }
 
 func iterate(path string, tarWriter *tar.Writer) {
