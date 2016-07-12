@@ -1,6 +1,6 @@
 package main
 
-import "tarws/cmd"
+import "github.com/rbarbey/tarws/cmd"
 
 func main() {
 	cmd.Execute()
