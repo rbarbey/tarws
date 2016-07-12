@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"archive/tar"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -25,8 +24,7 @@ var (
 )
 
 func backup(cmd *cobra.Command, args []string) {
-	fmt.Printf("Backupd command %+v\n", args)
-
+	// create a pipe so that s3uploader can read from tar's writer
 	reader, writer := io.Pipe()
 
 	go func() {
