@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"errors"
 	"io"
 	"log"
@@ -22,6 +23,7 @@ var (
 		RunE:  backup,
 	}
 	region, bucket, key string
+	compress            bool
 )
 
 func backup(cmd *cobra.Command, args []string) error {
@@ -38,7 +40,7 @@ func backup(cmd *cobra.Command, args []string) error {
 	reader, writer := io.Pipe()
 
 	go func() {
-		tarWriter := tar.NewWriter(writer)
+		tarWriter := tar.NewWriter(prepareWriter(writer))
 		defer tarWriter.Close()
 
 		iterate(path, tarWriter)
@@ -65,6 +67,14 @@ func backup(cmd *cobra.Command, args []string) error {
 	log.Println("Successfully uploaded to", result.Location)
 
 	return nil
+}
+
+func prepareWriter(writer io.Writer) io.Writer {
+	if compress {
+		return gzip.NewWriter(writer)
+	}
+
+	return writer
 }
 
 func iterate(path string, tarWriter *tar.Writer) {
@@ -114,6 +124,7 @@ func init() {
 	backupCmd.Flags().StringVarP(&region, "region", "r", "", "Region in which the target S3 bucket is located")
 	backupCmd.Flags().StringVarP(&bucket, "bucket", "b", "", "S3 bucket to which the resulting tar should be uploaded")
 	backupCmd.Flags().StringVarP(&key, "key", "k", "", "name of the uploaded file in the target S3 bucket")
+	backupCmd.Flags().BoolVarP(&compress, "compress", "c", false, "compress before uploading")
 
 	TarwsCmd.AddCommand(backupCmd)
 }
