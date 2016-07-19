@@ -1,18 +1,17 @@
 package cmd
 
 import (
-	"archive/tar"
 	"compress/gzip"
 	"errors"
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/rbarbey/tarws/tarws"
 	"github.com/spf13/cobra"
 )
 
@@ -40,11 +39,12 @@ func backup(cmd *cobra.Command, args []string) error {
 	reader, writer := io.Pipe()
 
 	go func() {
-		tarWriter := tar.NewWriter(prepareWriter(writer))
-		defer tarWriter.Close()
+		tarwsWriter := tarws.NewWriter(writer)
+		defer writer.Close()
+		defer tarwsWriter.Close()
 
-		iterate(path, tarWriter)
-		writer.Close()
+		err := tarwsWriter.WriteRecursively(path)
+		handle(err)
 	}()
 
 	session := session.New(&aws.Config{
@@ -69,49 +69,12 @@ func backup(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func prepareWriter(writer io.Writer) io.Writer {
+func prepareWriter(writer io.WriteCloser) io.WriteCloser {
 	if compress {
 		return gzip.NewWriter(writer)
 	}
 
 	return writer
-}
-
-func iterate(path string, tarWriter *tar.Writer) {
-	dir, err := os.Open(path)
-	handle(err)
-	defer dir.Close()
-
-	// read all file entries in dir in one slice
-	fileInfos, err := dir.Readdir(0)
-	handle(err)
-
-	for _, fileInfo := range fileInfos {
-		currentPath := filepath.Join(path, fileInfo.Name())
-		if fileInfo.IsDir() {
-			iterate(currentPath, tarWriter)
-		} else {
-			log.Printf("Adding %s\n", currentPath)
-			write(currentPath, fileInfo, tarWriter)
-		}
-	}
-}
-
-func write(path string, fileInfo os.FileInfo, tarWriter *tar.Writer) {
-	err := tarWriter.WriteHeader(&tar.Header{
-		Name:    path,
-		Size:    fileInfo.Size(),
-		Mode:    int64(fileInfo.Mode()),
-		ModTime: fileInfo.ModTime(),
-	})
-	handle(err)
-
-	file, err := os.Open(path)
-	handle(err)
-	defer file.Close()
-
-	_, err = io.Copy(tarWriter, file)
-	handle(err)
 }
 
 func handle(err error) {
